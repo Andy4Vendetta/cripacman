@@ -15,6 +15,8 @@ public class GameManager : MonoBehaviour
     private int ghostMultiplier = 1;
     private int lives = 3;
     private int score = 0;
+// записывается ток после проверки на момент проигрыша и записывается лучший результат, засунуть в метод проигрыша    private int Hiscore = score;
+
 
     public int Lives => lives;
     public int Score => score;
@@ -33,7 +35,6 @@ public class GameManager : MonoBehaviour
     {
         NewGame();
     }
-
     private void Update()
     {
         if (lives <= 0 && Input.anyKeyDown) {
@@ -85,6 +86,7 @@ public class GameManager : MonoBehaviour
         livesText.text = "x" + lives.ToString();
     }
 
+// --отображает на интерфесе кол-во очков--
     private void SetScore(int score)
     {
         this.score = score;
@@ -94,7 +96,7 @@ public class GameManager : MonoBehaviour
     public void PacmanEaten()
     {
         pacman.DeathSequence();
-
+// тыбзим для + 1 жизки в бонусе
         SetLives(lives - 1);
 
         if (lives > 0) {
@@ -108,16 +110,29 @@ public class GameManager : MonoBehaviour
     {
         int points = ghost.points * ghostMultiplier;
         SetScore(score + points);
-
-        ghostMultiplier++;
+// условие появления бонуса на карте (5 призраков для 1 бонуса)
+        ghostMultiplier++; 
+        //if (ghostMultipier = 5){ неправильный код, нужно вызывать метод вишенки, в котором уже будет все это делаться
+        //SetLives(lives + 1);
+        //pellet.gameObject.SetActive(true);
+        //}
+        // if (ghostMultipier = 5)
+        // NAAME.SetActive(True);
     }
-
+// юзять завтра для бонуса , действие, дает + 1 жизнь SetLives(lives + 1);
+    public void HPBonusEaten(HPBonus pellet) //САМЫЙ ПРАВДОПОДОБНЫЙ ВАРИК, НО ОН ТОК БЛОЧИТ ПРОХОД ДЛА ПАКМАНА
+    {
+        SetScore(score + pellet.points);
+        SetLives(lives + 1);
+        this.gameObject.SetActive(false);
+    }
     public void PelletEaten(Pellet pellet)
     {
-        pellet.gameObject.SetActive(false);
+        pellet.gameObject.SetActive(false); // будет также 
+        //SetLives(lives + 1);
 
         SetScore(score + pellet.points);
-
+// уже не надо, до свидания :)
         if (!HasRemainingPellets())
         {
             pacman.gameObject.SetActive(false);
@@ -152,5 +167,4 @@ public class GameManager : MonoBehaviour
     {
         ghostMultiplier = 1;
     }
-
 }
