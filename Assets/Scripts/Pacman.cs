@@ -6,7 +6,7 @@ public class Pacman : MonoBehaviour
     [SerializeField]
     private AnimatedSprite deathSequence;
     private SpriteRenderer spriteRenderer;
-    private Movement movement;
+    public Movement movement;
     private new Collider2D collider;
 
     private void Awake()
@@ -55,6 +55,17 @@ public class Pacman : MonoBehaviour
         movement.enabled = false;
         deathSequence.enabled = true;
         deathSequence.Restart();
+    }
+
+    private void ResetSpeed()
+    {
+        movement.speedMultiplier = 1f;
+    }
+    public void HealthRage(float rageSpeed)
+    {
+        movement.speedMultiplier = rageSpeed;
+        CancelInvoke(nameof(ResetSpeed));
+        Invoke(nameof(ResetSpeed), 7f);
     }
 
 }

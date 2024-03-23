@@ -13,7 +13,20 @@ public class GameManager : MonoBehaviour
     [SerializeField] private Text livesText;
     [SerializeField] private Text highScoreText;
     [SerializeField] private Text levelText;
-
+    public AudioSource sound;
+    public AudioSource gameMusicCalm;
+    public AudioSource gameMusicCombat;
+    public AudioClip coinClip;
+    public AudioClip rageClip;
+    public AudioClip deathClip;
+    public AudioClip ghostDeathClip;
+    public AudioClip gameOverClip;
+    public AudioClip notOverClip;
+    public AudioClip calmClip;
+    public AudioClip combatClip;
+    public AudioClip enoughClip;
+    public AudioClip yesClip;
+    public AudioClip niceTryClip;
     private int ghostMultiplier = 1;
     private int lives = 3;
     private int score = 0;
@@ -37,6 +50,14 @@ public class GameManager : MonoBehaviour
 
     private void Start()
     {
+        gameMusicCalm.clip = calmClip;
+        gameMusicCombat.clip = combatClip;
+        gameMusicCalm.loop = true;
+        gameMusicCombat.loop = true;
+        gameMusicCalm.volume = 0.6f;
+        gameMusicCombat.volume = 0;
+        gameMusicCalm.Play();
+        gameMusicCombat.Play();
         NewGame();
     }
     private void Update()
@@ -52,31 +73,43 @@ public class GameManager : MonoBehaviour
         SetLives(3);
         NewRound();
         SetLevel(1);
+        gameMusicCalm.volume = 0.6f;
+        gameMusicCombat.volume = 0;
     }
 
     private void NewRound()
     {
         gameOverText.enabled = false;
-
         foreach (Transform pellet in pellets) {
             pellet.gameObject.SetActive(true);
         }
-
+        
         SetLevel(level + 1);
         ResetState();
     }
 
     private void ResetState()
     {
+        sound.Stop();
         for (int i = 0; i < ghosts.Length; i++) {
             ghosts[i].ResetState();
         }
-
+        if (lives > 1)
+        {
+            gameMusicCalm.volume = 0.6f;
+            gameMusicCombat.volume = 0;
+        }
+        else
+        {
+            gameMusicCombat.volume = 0.4f;
+            gameMusicCalm.volume = 0;
+        }
         pacman.ResetState();
     }
 
     private void GameOver()
     {
+        sound.PlayOneShot(gameOverClip, 1);
         gameOverText.enabled = true;
         if (HighScore < Score)
         {
@@ -116,6 +149,16 @@ public class GameManager : MonoBehaviour
 
     public void PacmanEaten()
     {
+        sound.Stop();
+        if (lives == 2)
+        {
+            sound.PlayOneShot(ghostDeathClip, 1);
+            sound.PlayOneShot(notOverClip, 1);
+        }
+        else if (lives > 2)
+        {
+            sound.PlayOneShot(deathClip, 1);
+        }
         pacman.DeathSequence();
 // тыбзим для + 1 жизки в бонусе
         SetLives(lives - 1);
@@ -129,6 +172,7 @@ public class GameManager : MonoBehaviour
 
     public void GhostEaten(Ghost ghost)
     {
+        sound.PlayOneShot(ghostDeathClip, 1);
         int points = ghost.points * ghostMultiplier;
         SetScore(score + points);
 // условие появления бонуса на карте (5 призраков для 1 бонуса)
@@ -152,16 +196,33 @@ public class GameManager : MonoBehaviour
         {
             SetLives(lives + 1);
         }
+        if (lives > 1)
+        {
+            gameMusicCalm.volume = 0.6f;
+            gameMusicCombat.volume = 0;
+        }
+        else
+        {
+            gameMusicCombat.volume = 0.4f;
+            gameMusicCalm.volume = 0;
+        }
     }
     public void PelletEaten(Pellet pellet)
     {
+        sound.PlayOneShot(coinClip, 0.5f);
         pellet.gameObject.SetActive(false); // будет также 
-        //SetLives(lives + 1);
-
         SetScore(score + pellet.points);
-// уже не надо, до свидания :)
         if (!HasRemainingPellets())
         {
+            sound.Stop();
+            if (lives == 1)
+            {
+                sound.PlayOneShot(niceTryClip, 1);
+            }
+            else
+            {
+                sound.PlayOneShot(yesClip, 1);
+            }
             pacman.gameObject.SetActive(false);
             Invoke(nameof(NewRound), 3f);
         }
@@ -169,6 +230,13 @@ public class GameManager : MonoBehaviour
 
     public void PowerPelletEaten(PowerPellet pellet)
     {
+        sound.Stop();
+        if (lives < 2)
+        {
+            pacman.HealthRage(1.5f);
+            sound.PlayOneShot(enoughClip, 1);
+        }
+        sound.PlayOneShot(rageClip, 0.5f);
         for (int i = 0; i < ghosts.Length; i++) {
             ghosts[i].frightened.Enable(pellet.duration);
         }
@@ -176,6 +244,8 @@ public class GameManager : MonoBehaviour
         PelletEaten(pellet);
         CancelInvoke(nameof(ResetGhostMultiplier));
         Invoke(nameof(ResetGhostMultiplier), pellet.duration);
+        //pacman.movement.speedMultiplier = 1f;
+        //pacman.HealthRage(1f);
     }
 
     private bool HasRemainingPellets()
@@ -185,6 +255,9 @@ public class GameManager : MonoBehaviour
             if (pellet.gameObject.activeSelf) {
                 return true;
             }
+            //if (pellet.gameObject.activeSelf) {
+            //    return true;
+            //}
         }
 
         return false;
