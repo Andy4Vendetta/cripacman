@@ -27,6 +27,8 @@ public class GameManager : MonoBehaviour
     public AudioClip enoughClip;
     public AudioClip yesClip;
     public AudioClip niceTryClip;
+    public AudioClip swordsClip;
+    public AudioClip thatsitClip;
     private int ghostMultiplier = 1;
     private int lives = 3;
     private int score = 0;
@@ -73,6 +75,10 @@ public class GameManager : MonoBehaviour
         SetLives(3);
         NewRound();
         SetLevel(1);
+        foreach (var ghost in ghosts)
+        {
+            ghost.movement.speed = 7f;
+        }
         gameMusicCalm.volume = 0.6f;
         gameMusicCombat.volume = 0;
     }
@@ -83,7 +89,10 @@ public class GameManager : MonoBehaviour
         foreach (Transform pellet in pellets) {
             pellet.gameObject.SetActive(true);
         }
-        
+        foreach (var ghost in ghosts)
+        {
+            ghost.movement.speed += 0.5f;
+        }
         SetLevel(level + 1);
         ResetState();
     }
@@ -191,10 +200,10 @@ public class GameManager : MonoBehaviour
 // юзять завтра для бонуса , действие, дает + 1 жизнь SetLives(lives + 1);
     public void HPBonusEaten(HPBonus pellet) //САМЫЙ ПРАВДОПОДОБНЫЙ ВАРИК, НО ОН ТОК БЛОЧИТ ПРОХОД ДЛА ПАКМАНА
     {
-        PelletEaten(pellet);
         if (lives < 3)
         {
             SetLives(lives + 1);
+            sound.PlayOneShot(thatsitClip, 1);
         }
         if (lives > 1)
         {
@@ -206,10 +215,11 @@ public class GameManager : MonoBehaviour
             gameMusicCombat.volume = 0.4f;
             gameMusicCalm.volume = 0;
         }
+        PelletEaten(pellet);
     }
     public void PelletEaten(Pellet pellet)
     {
-        sound.PlayOneShot(coinClip, 0.5f);
+        sound.PlayOneShot(coinClip, 0.3f);
         pellet.gameObject.SetActive(false); // будет также 
         SetScore(score + pellet.points);
         if (!HasRemainingPellets())
@@ -217,10 +227,12 @@ public class GameManager : MonoBehaviour
             sound.Stop();
             if (lives == 1)
             {
+                SetScore(score + 1000);
                 sound.PlayOneShot(niceTryClip, 1);
             }
             else
             {
+                sound.Stop();
                 sound.PlayOneShot(yesClip, 1);
             }
             pacman.gameObject.SetActive(false);
@@ -235,8 +247,12 @@ public class GameManager : MonoBehaviour
         {
             pacman.HealthRage(1.5f);
             sound.PlayOneShot(enoughClip, 1);
+            sound.PlayOneShot(swordsClip, 1);
         }
-        sound.PlayOneShot(rageClip, 0.5f);
+        else
+        {
+            sound.PlayOneShot(rageClip, 0.5f);
+        }
         for (int i = 0; i < ghosts.Length; i++) {
             ghosts[i].frightened.Enable(pellet.duration);
         }

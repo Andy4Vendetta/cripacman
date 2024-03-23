@@ -689,6 +689,8 @@ MonoBehaviour:
   enoughClip: {fileID: 8300000, guid: 71ce77c76def71074bf1d3baf1f914c0, type: 3}
   yesClip: {fileID: 8300000, guid: 3c34a78a98382603cbab3ae5f5e8302f, type: 3}
   niceTryClip: {fileID: 8300000, guid: e1bf083b015d82ed9a8d8682443169c1, type: 3}
+  swordsClip: {fileID: 8300000, guid: d2aef1c980047b394b503d5598b5f5fd, type: 3}
+  thatsitClip: {fileID: 8300000, guid: c41898b2373b85252bdf850b455598b9, type: 3}
 --- !u!4 &469897152
 Transform:
   m_ObjectHideFlags: 0
