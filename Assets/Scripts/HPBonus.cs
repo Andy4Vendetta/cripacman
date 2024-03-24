@@ -1,8 +1,7 @@
-using UnityEngine;
-public class HPBonus : Pellet
+public class HpBonus : Pellet
 {
     protected override void Eat()
     {
-        GameManager.Instance.HPBonusEaten(this);
+        GameManager.Instance.HpBonusEaten(this);
     }
 }

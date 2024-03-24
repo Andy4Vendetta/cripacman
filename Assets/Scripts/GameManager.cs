@@ -1,10 +1,14 @@
+using System.Linq;
 using UnityEngine;
+using UnityEngine.Rendering.PostProcessing;
 using UnityEngine.UI;
-
+using System.IO;
 public class GameManager : MonoBehaviour
 {
     public static GameManager Instance { get; private set; }
-
+    
+    private const string SaveFile = "Saves";
+    
     [SerializeField] private Ghost[] ghosts;
     [SerializeField] private Pacman pacman;
     [SerializeField] private Transform pellets;
@@ -13,33 +17,36 @@ public class GameManager : MonoBehaviour
     [SerializeField] private Text livesText;
     [SerializeField] private Text highScoreText;
     [SerializeField] private Text levelText;
-    public AudioSource sound;
-    public AudioSource gameMusicCalm;
-    public AudioSource gameMusicCombat;
-    public AudioClip coinClip;
-    public AudioClip rageClip;
-    public AudioClip deathClip;
-    public AudioClip ghostDeathClip;
-    public AudioClip gameOverClip;
-    public AudioClip notOverClip;
-    public AudioClip calmClip;
-    public AudioClip combatClip;
-    public AudioClip enoughClip;
-    public AudioClip yesClip;
-    public AudioClip niceTryClip;
-    public AudioClip swordsClip;
-    public AudioClip thatsitClip;
+    
+    [SerializeField] private AudioSource sound;
+    [SerializeField] private AudioSource gameMusicCalm;
+    [SerializeField] private AudioSource gameMusicCombat;
+
+    [SerializeField] private AudioClip coinClip;
+    [SerializeField] private AudioClip rageClip;
+    [SerializeField] private AudioClip deathClip;
+    [SerializeField] private AudioClip ghostDeathClip;
+    [SerializeField] private AudioClip gameOverClip;
+    [SerializeField] private AudioClip notOverClip;
+    [SerializeField] private AudioClip calmClip;
+    [SerializeField] private AudioClip combatClip;
+    [SerializeField] private AudioClip enoughClip;
+    [SerializeField] private AudioClip yesClip;
+    [SerializeField] private AudioClip niceTryClip;
+    [SerializeField] private AudioClip swordsClip;
+    [SerializeField] private AudioClip thatsItClip;
+
     private int ghostMultiplier = 1;
-    private int lives = 3;
-    private int score = 0;
     private int level = 1;
-    private int highscore = 0;
-// записывается ток после проверки на момент проигрыша и записывается лучший результат, засунуть в метод проигрыша    private int Hiscore = score;
-
-    public int HighScore => highscore;
-    public int Lives => lives;
-    public int Score => score;
-
+    private int bloomInt;
+    [SerializeField] private PostProcessVolume mVolume;
+    private Bloom mBloom;
+    private Vignette mVignette;
+    private ChromaticAberration mChroma;
+    [SerializeField] private PostProcessProfile postProcProf;
+    private int HighScore { get; set; }
+    private int Lives { get; set; } = 3;
+    private int Score { get; set; }
     private void Awake()
     {
         if (Instance != null) {
@@ -49,9 +56,40 @@ public class GameManager : MonoBehaviour
             DontDestroyOnLoad(gameObject);
         }
     }
-
+    private static string ReadFile(string file)
+    {
+        if (File.Exists(file))
+        {
+            var sr = File.OpenText(file);
+            var text = sr.ReadLine();
+            sr.Close();
+            return text;
+        }
+        else
+        {
+            var sw = File.CreateText(file);
+            sw.WriteLine("0");
+            sw.Close();
+            var sr = File.OpenText(file);
+            var text = sr.ReadLine();
+            sr.Close();
+            return text;
+        }
+    }
+    private static void WriteFile(string file, int hs)
+    {
+        var sw = File.CreateText(file);
+        sw.Flush();
+        sw.WriteLine(hs);
+        sw.Close();
+    }
     private void Start()
     {
+        mBloom = postProcProf.GetSetting<Bloom>();
+        mChroma = postProcProf.GetSetting<ChromaticAberration>();
+        NewGame();
+        HighScore = int.Parse(ReadFile(SaveFile));
+        highScoreText.text = ReadFile(SaveFile);
         gameMusicCalm.clip = calmClip;
         gameMusicCombat.clip = combatClip;
         gameMusicCalm.loop = true;
@@ -60,153 +98,133 @@ public class GameManager : MonoBehaviour
         gameMusicCombat.volume = 0;
         gameMusicCalm.Play();
         gameMusicCombat.Play();
-        NewGame();
     }
     private void Update()
     {
-        if (lives <= 0 && Input.anyKeyDown) {
+        if (Lives <= 0 && Input.anyKeyDown) {
+            // ReSharper disable once Unity.PerformanceCriticalCodeInvocation
             NewGame();
         }
     }
-
+    // ReSharper disable Unity.PerformanceAnalysis
     private void NewGame()
     {
         SetScore(0);
         SetLives(3);
         NewRound();
         SetLevel(1);
+        mBloom.intensity.value = 0;
+        bloomInt = 0;
         foreach (var ghost in ghosts)
         {
-            ghost.movement.speed = 7f;
+            ghost.Movement.speed = 7f;
         }
         gameMusicCalm.volume = 0.6f;
         gameMusicCombat.volume = 0;
     }
-
     private void NewRound()
     {
+        NormalEffects();
         gameOverText.enabled = false;
         foreach (Transform pellet in pellets) {
             pellet.gameObject.SetActive(true);
         }
         foreach (var ghost in ghosts)
         {
-            ghost.movement.speed += 0.5f;
+            ghost.Movement.speed += 0.5f;
         }
         SetLevel(level + 1);
         ResetState();
     }
-
     private void ResetState()
     {
         sound.Stop();
-        for (int i = 0; i < ghosts.Length; i++) {
-            ghosts[i].ResetState();
-        }
-        if (lives > 1)
+        foreach (var t in ghosts)
         {
-            gameMusicCalm.volume = 0.6f;
-            gameMusicCombat.volume = 0;
-        }
-        else
-        {
-            gameMusicCombat.volume = 0.4f;
-            gameMusicCalm.volume = 0;
+            t.ResetState();
         }
         pacman.ResetState();
     }
-
     private void GameOver()
     {
         sound.PlayOneShot(gameOverClip, 1);
         gameOverText.enabled = true;
+        NormalEffects();
         if (HighScore < Score)
         {
             SetHighScore(Score);
         }
-
-        for (int i = 0; i < ghosts.Length; i++) {
-            ghosts[i].gameObject.SetActive(false);
+        foreach (var t in ghosts)
+        {
+            t.gameObject.SetActive(false);
         }
-
         pacman.gameObject.SetActive(false);
     }
-
     private void SetLives(int lives)
     {
-        this.lives = lives;
-        livesText.text = "x" + lives.ToString();
+        Lives = lives;
+        livesText.text = "x" + lives;
     }
-    private void SetLevel(int level)
+    private void SetLevel(int level1)
     {
-        this.level = level;
-        levelText.text = level.ToString().PadLeft(2, '0');
+        level = level1;
+        levelText.text = level1.ToString().PadLeft(2, '0');
     }
-
     private void SetHighScore(int highscore)
     {
-        this.highscore = highscore;
+        HighScore = highscore;
         highScoreText.text = highscore.ToString();
+        WriteFile(SaveFile, highscore);
     }
-
-// --отображает на интерфесе кол-во очков--
     private void SetScore(int score)
     {
-        this.score = score;
+        Score = score;
         scoreText.text = score.ToString().PadLeft(2, '0');
     }
-
     public void PacmanEaten()
     {
         sound.Stop();
-        if (lives == 2)
+        switch (Lives)
         {
-            sound.PlayOneShot(ghostDeathClip, 1);
-            sound.PlayOneShot(notOverClip, 1);
-        }
-        else if (lives > 2)
-        {
-            sound.PlayOneShot(deathClip, 1);
+            case 2:
+                sound.PlayOneShot(ghostDeathClip, 1);
+                sound.PlayOneShot(notOverClip, 1);
+                mBloom.intensity.value = 20;
+                bloomInt = 20;
+                gameMusicCombat.volume = 0.4f;
+                gameMusicCalm.volume = 0;
+                break;
+            case > 2:
+                sound.PlayOneShot(deathClip, 1);
+                break;
         }
         pacman.DeathSequence();
-// тыбзим для + 1 жизки в бонусе
-        SetLives(lives - 1);
-
-        if (lives > 0) {
+        SetLives(Lives - 1);
+        NormalEffects();
+        if (Lives > 0) {
             Invoke(nameof(ResetState), 3f);
         } else {
             GameOver();
         }
     }
-
     public void GhostEaten(Ghost ghost)
     {
         sound.PlayOneShot(ghostDeathClip, 1);
-        int points = ghost.points * ghostMultiplier;
-        SetScore(score + points);
-// условие появления бонуса на карте (5 призраков для 1 бонуса)
+        var points = ghost.points * ghostMultiplier;
+        SetScore(Score + points);
         ghostMultiplier++;
-        //if (ghostEaten == 5)
-        //{
-        //    cherry.Spawn();
-        //}
-        //if (ghostMultipier = 5){ неправильный код, нужно вызывать метод вишенки, в котором уже будет все это делаться
-        //SetLives(lives + 1);
-        //pellet.gameObject.SetActive(true);
-        //}
-        // if (ghostMultipier = 5)
-        // NAAME.SetActive(True);
     }
-// юзять завтра для бонуса , действие, дает + 1 жизнь SetLives(lives + 1);
-    public void HPBonusEaten(HPBonus pellet) //САМЫЙ ПРАВДОПОДОБНЫЙ ВАРИК, НО ОН ТОК БЛОЧИТ ПРОХОД ДЛА ПАКМАНА
+    public void HpBonusEaten(HpBonus pellet)
     {
-        if (lives < 3)
+        if (Lives < 3)
         {
-            SetLives(lives + 1);
-            sound.PlayOneShot(thatsitClip, 1);
+            SetLives(Lives + 1);
+            sound.PlayOneShot(thatsItClip, 1);
         }
-        if (lives > 1)
+        if (Lives > 1)
         {
+            mBloom.intensity.value = 0;
+            bloomInt = 0;
             gameMusicCalm.volume = 0.6f;
             gameMusicCombat.volume = 0;
         }
@@ -220,32 +238,32 @@ public class GameManager : MonoBehaviour
     public void PelletEaten(Pellet pellet)
     {
         sound.PlayOneShot(coinClip, 0.3f);
-        pellet.gameObject.SetActive(false); // будет также 
-        SetScore(score + pellet.points);
-        if (!HasRemainingPellets())
+        pellet.gameObject.SetActive(false);
+        SetScore(Score + pellet.points);
+        if (HasRemainingPellets()) return;
+        sound.Stop();
+        NormalEffects();
+        if (Lives == 1)
+        {
+            SetScore(Score + 5000);
+            sound.PlayOneShot(niceTryClip, 1);
+        }
+        else
         {
             sound.Stop();
-            if (lives == 1)
-            {
-                SetScore(score + 1000);
-                sound.PlayOneShot(niceTryClip, 1);
-            }
-            else
-            {
-                sound.Stop();
-                sound.PlayOneShot(yesClip, 1);
-            }
-            pacman.gameObject.SetActive(false);
-            Invoke(nameof(NewRound), 3f);
+            sound.PlayOneShot(yesClip, 1);
         }
+        pacman.gameObject.SetActive(false);
+        Invoke(nameof(NewRound), 3f);
     }
-
     public void PowerPelletEaten(PowerPellet pellet)
     {
         sound.Stop();
-        if (lives < 2)
+        if (Lives < 2)
         {
             pacman.HealthRage(1.5f);
+            CancelInvoke(nameof(RageEffect));
+            Invoke(nameof(RageEffect), 0.8f);
             sound.PlayOneShot(enoughClip, 1);
             sound.PlayOneShot(swordsClip, 1);
         }
@@ -253,32 +271,33 @@ public class GameManager : MonoBehaviour
         {
             sound.PlayOneShot(rageClip, 0.5f);
         }
-        for (int i = 0; i < ghosts.Length; i++) {
-            ghosts[i].frightened.Enable(pellet.duration);
+        foreach (var t in ghosts)
+        {
+            t.Frightened.Enable(pellet.duration);
         }
-
         PelletEaten(pellet);
         CancelInvoke(nameof(ResetGhostMultiplier));
         Invoke(nameof(ResetGhostMultiplier), pellet.duration);
-        //pacman.movement.speedMultiplier = 1f;
-        //pacman.HealthRage(1f);
     }
-
+    private void RageEffect()
+    {
+        if (pacman)
+        {
+            mBloom.intensity.value = 30;
+            mChroma.intensity.value = 1;
+        }
+        CancelInvoke(nameof(NormalEffects));
+        Invoke(nameof(NormalEffects), 6.2f);
+    }
+    private void NormalEffects()
+    {
+        mBloom.intensity.value = bloomInt;
+        mChroma.intensity.value = 0;
+    }
     private bool HasRemainingPellets()
     {
-        foreach (Transform pellet in pellets)
-        {
-            if (pellet.gameObject.activeSelf) {
-                return true;
-            }
-            //if (pellet.gameObject.activeSelf) {
-            //    return true;
-            //}
-        }
-
-        return false;
+        return pellets.Cast<Transform>().Any(pellet => pellet.gameObject.activeSelf);
     }
-
     private void ResetGhostMultiplier()
     {
         ghostMultiplier = 1;
